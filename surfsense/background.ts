@@ -1,11 +1,6 @@
 import { getRenderedHtml, initQueues, initWebHistory } from "components/commons"
 import type { WebHistory } from "components/interfaces"
-
 import { Storage } from "@plasmohq/storage"
-
-const storage = new Storage({
-    area: "local"
-  })
 
 chrome.tabs.onCreated.addListener(async (tab: any) => {
   try {
@@ -19,6 +14,7 @@ chrome.tabs.onCreated.addListener(async (tab: any) => {
 chrome.tabs.onUpdated.addListener(
   async (tabId: number, changeInfo: any, tab: any) => {
     if (changeInfo.status === "complete" && tab.url) {
+      const storage = new Storage({ area: "local" })
       await initWebHistory(tab.id)
       await initQueues(tab.id)
 
@@ -26,13 +22,13 @@ chrome.tabs.onUpdated.addListener(
         // @ts-ignore
         target: { tabId: tab.id },
         // @ts-ignore
-        function: getRenderedHtml
+        func: getRenderedHtml
       })
 
       let toPushInTabHistory: any = result[0].result // const { renderedHtml, title, url, entryTime } = result[0].result;
 
-      let urlQueueListObj: any = await storage.get("urlQueueList");
-      let timeQueueListObj: any = await storage.get("timeQueueList");
+      let urlQueueListObj: any = await storage.get("urlQueueList")
+      let timeQueueListObj: any = await storage.get("timeQueueList")
 
       urlQueueListObj.urlQueueList
         .find((data: WebHistory) => data.tabsessionId === tabId)
@@ -41,10 +37,10 @@ chrome.tabs.onUpdated.addListener(
         .find((data: WebHistory) => data.tabsessionId === tabId)
         .timeQueue.push(toPushInTabHistory.entryTime)
 
-      await storage.set("urlQueueList",{
+      await storage.set("urlQueueList", {
         urlQueueList: urlQueueListObj.urlQueueList
       })
-      await storage.set("timeQueueList",{
+      await storage.set("timeQueueList", {
         timeQueueList: timeQueueListObj.timeQueueList
       })
     }
@@ -52,8 +48,9 @@ chrome.tabs.onUpdated.addListener(
 )
 
 chrome.tabs.onRemoved.addListener(async (tabId: number, removeInfo: object) => {
-  let urlQueueListObj: any = await storage.get("urlQueueList");
-  let timeQueueListObj: any = await storage.get("timeQueueList");
+  const storage = new Storage({ area: "local" })
+  let urlQueueListObj: any = await storage.get("urlQueueList")
+  let timeQueueListObj: any = await storage.get("timeQueueList")
   if (urlQueueListObj.urlQueueList && timeQueueListObj.timeQueueList) {
     const urlQueueListToSave = urlQueueListObj.urlQueueList.map(
       (element: WebHistory) => {
@@ -69,10 +66,10 @@ chrome.tabs.onRemoved.addListener(async (tabId: number, removeInfo: object) => {
         }
       }
     )
-    await storage.set("urlQueueList",{
+    await storage.set("urlQueueList", {
       urlQueueList: urlQueueListToSave.filter((item: any) => item)
     })
-    await storage.set("timeQueueList",{
+    await storage.set("timeQueueList", {
       timeQueueList: timeQueueListSave.filter((item: any) => item)
     })
   }

@@ -1,18 +1,16 @@
 import React, { useState } from "react";
-import { goTo } from "react-chrome-extension-router";
-import { Popup } from "../popup";
-
+import { useNavigate } from "react-router-dom"
+import icon from "data-base64:~assets/icon.png"
 import { Storage } from "@plasmohq/storage"
 
-const storage = new Storage({
-    area: "local"
-  })
-
-export const LoginForm = () => {
+const LoginForm = () => {
+  const navigation = useNavigate()
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const storage = new Storage({ area: "local" })
+
 
 
   const validateForm = () => {
@@ -47,7 +45,8 @@ export const LoginForm = () => {
       if (response.ok) {
         const data = await response.json();
         await storage.set('token', data.access_token);
-        goTo(Popup);
+        // goTo(Popup);
+        navigation("/")
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Authentication failed!');
@@ -98,3 +97,5 @@ export const LoginForm = () => {
     </>
   );
 }
+
+export default LoginForm

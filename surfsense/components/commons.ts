@@ -1,21 +1,16 @@
 import { Storage } from "@plasmohq/storage"
-
 import type { WebHistory } from "./interfaces"
 
-const storage = new Storage({
-  area: "local"
-})
 
 export const emptyArr: any[] = []
 
 export const initQueues = async (tabId: number) => {
-  // let urlQueueListObj = await chrome.storage.local.get(["urlQueueList"]);
-  // let timeQueueListObj = await chrome.storage.local.get(["timeQueueList"]);
+  const storage = new Storage({ area: "local" })
 
   let urlQueueListObj: any = await storage.get("urlQueueList")
   let timeQueueListObj: any = await storage.get("timeQueueList")
 
-  if (!urlQueueListObj.urlQueueList && !timeQueueListObj.timeQueueList) {
+  if (!urlQueueListObj && !timeQueueListObj) {
     await storage.set("urlQueueList", {
       urlQueueList: [{ tabsessionId: tabId, urlQueue: [] }]
     })
@@ -67,9 +62,10 @@ export function getRenderedHtml() {
 }
 
 export const initWebHistory = async (tabId: number) => {
+const storage = new Storage({ area: "local" })
   const result: any = await storage.get("webhistory")
 
-  if (!result.webhistory) {
+  if (result === undefined) {
     await storage.set("webhistory", { webhistory: emptyArr })
     return
   }
