@@ -1,3 +1,7 @@
+# SurfSense Cross Browser Extension
+
+Use this guide to build for your browser https://docs.plasmo.com/framework/workflows/build
+
 This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
 
 ## Getting Started
