@@ -7,15 +7,12 @@ const OptionsIndex = () => {
   const navigation = useNavigate()
   const storage = new Storage({ area: "local" })
   
-  const [neourl, setNeourl] = useState('');
-  const [neouser, setNeouser] = useState('');
-  const [neopass, setNeopass] = useState('');
   const [openaikey, setOpenaiKey] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
-    if (!neourl || !neouser || !neopass || !openaikey) {
+    if (!openaikey) {
       setError('All values are required');
       return false;
     }
@@ -28,9 +25,6 @@ const OptionsIndex = () => {
     if (!validateForm()) return;
     setLoading(true);
 
-    await storage.set('neourl', neourl);
-    await storage.set('neouser', neouser);
-    await storage.set('neopass', neopass);
     await storage.set('openaikey', openaikey);
 
     setLoading(false);
@@ -51,19 +45,6 @@ const OptionsIndex = () => {
               Required Values
             </h1>
             <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Neo4J URL</label>
-                <input type="text" value={neourl} onChange={(e) => setNeourl(e.target.value)} name="neourl" id="neourl" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="neo4j url" />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Neo4J Username</label>
-                <input type="text" value={neouser} onChange={(e) => setNeouser(e.target.value)} name="neouser" id="neouser" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="neo4j username" />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Neo4J Password</label>
-                <input type="text" value={neopass} onChange={(e) => setNeopass(e.target.value)} name="neopass" id="neopass" placeholder="••••••••" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-              </div>
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">OpenAI API Key</label>
                 <input type="text" value={openaikey} onChange={(e) => setOpenaiKey(e.target.value)} name="openaikey" id="openaikey" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="OpenAI API Key" />

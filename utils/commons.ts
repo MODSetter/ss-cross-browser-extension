@@ -1,7 +1,6 @@
 import { Storage } from "@plasmohq/storage"
 import type { WebHistory } from "./interfaces"
 
-
 export const emptyArr: any[] = []
 
 export const initQueues = async (tabId: number) => {

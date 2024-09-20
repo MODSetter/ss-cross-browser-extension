@@ -3,15 +3,16 @@ import { useNavigate } from "react-router-dom"
 import icon from "data-base64:~assets/icon.png"
 
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 import { convertHtmlToMarkdown } from "dom-to-semantic-markdown";
-import type { WebHistory } from "components/interfaces";
-import { webhistoryToLangChainDocument, getRenderedHtml, emptyArr } from "~components/commons";
+import type { WebHistory } from "~utils/interfaces";
+import { webhistoryToLangChainDocument, emptyArr, getRenderedHtml } from "~utils/commons";
 import Loading from "./Loading";
 
 import brain from "data-base64:~assets/brain.png"
 import { Storage } from "@plasmohq/storage"
+
+import { sendToBackground } from "@plasmohq/messaging"
 
 
 
@@ -21,7 +22,7 @@ async function clearMem(): Promise<void> {
 
     let webHistory: any = await storage.get("webhistory");
     let urlQueue: any = await storage.get("urlQueueList");
-    let timeQueue: any= await storage.get("timeQueueList");
+    let timeQueue: any = await storage.get("timeQueueList");
 
     if (!webHistory.webhistory) {
       return
@@ -39,7 +40,7 @@ async function clearMem(): Promise<void> {
 
       actives = actives.filter((item: any) => item)
 
-  
+
       //Only retain which is still active
       const newHistory = webHistory.webhistory.map((element: any) => {
         //@ts-ignore
@@ -63,9 +64,9 @@ async function clearMem(): Promise<void> {
       })
 
 
-      await storage.set("webhistory",{ webhistory: newHistory.filter((item: any) => item) });
-      await storage.set("urlQueueList",{ urlQueueList: newUrlQueue.filter((item: any) => item) });
-      await storage.set("timeQueueList",{ timeQueueList: newTimeQueue.filter((item: any) => item) });
+      await storage.set("webhistory", { webhistory: newHistory.filter((item: any) => item) });
+      await storage.set("urlQueueList", { urlQueueList: newUrlQueue.filter((item: any) => item) });
+      await storage.set("timeQueueList", { timeQueueList: newTimeQueue.filter((item: any) => item) });
 
       toast.info("History Store Deleted!", {
         position: "bottom-center"
@@ -78,9 +79,11 @@ async function clearMem(): Promise<void> {
 
 
 const HomePage = () => {
-    const navigation = useNavigate()
+  const navigation = useNavigate()
   const [noOfWebPages, setNoOfWebPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+
+  const [searchspace, setSearchSpace] = useState('');
 
 
   useEffect(() => {
@@ -93,25 +96,23 @@ const HomePage = () => {
 
         if (!response.ok) {
           throw new Error('Token verification failed');
-        }else{
-          const NEO4JURL = await storage.get('neourl');
-          const NEO4JUSERNAME = await storage.get('neouser');
-          const NEO4JPASSWORD = await storage.get('neopass');
+        } else {
           const OPENAIKEY = await storage.get('openaikey');
-    
-          const check = (NEO4JURL && NEO4JUSERNAME && NEO4JPASSWORD && OPENAIKEY)
-          if(!check){
+
+          const check = (OPENAIKEY)
+          if (!check) {
             // goTo(FillEnvVariables);
             navigation("/settings")
           }
         }
       } catch (error) {
         await storage.remove('token');
+        await storage.remove('showShadowDom');
         // goTo(LoginForm);
         navigation("/login")
       }
 
-   
+
 
     };
 
@@ -129,7 +130,7 @@ const HomePage = () => {
               // console.log("changes.webhistory", changes.webhistory)
               const webhistory = JSON.parse(changes.webhistory.newValue);
 
-            //   console.log("webhistory",webhistory)
+              console.log("webhistory", webhistory)
 
               let sum = 0
 
@@ -145,6 +146,16 @@ const HomePage = () => {
         );
 
         const storage = new Storage({ area: "local" })
+
+        const searchspace = await storage.get("search_space");
+
+        if(searchspace){
+          setSearchSpace(searchspace)
+        }else{
+          await storage.set("search_space", 'GENERAL')
+        }
+
+        await storage.set("showShadowDom", true)
 
         const webhistoryObj: any = await storage.get("webhistory");
         if (webhistoryObj.webhistory.length) {
@@ -170,96 +181,6 @@ const HomePage = () => {
     onLoad()
   }, []);
 
-  const saveData = async () => {
-
-    try {
-      // setLoading(true);
-      const storage = new Storage({ area: "local" })
-
-      const webhistoryObj: any = await storage.get("webhistory");
-      const webhistory = webhistoryObj.webhistory;
-      if (webhistory) {
-
-        let processedHistory: any[] = []
-        let newHistoryAfterCleanup: any[] = []
-
-        webhistory.forEach((element: any) => {
-          let tabhistory = element.tabHistory;
-          for (let i = 0; i < tabhistory.length; i++) {
-            tabhistory[i].pageContentMarkdown = convertHtmlToMarkdown(tabhistory[i].renderedHtml, {
-              extractMainContent: true,
-              enableTableColumnTracking: true,
-            })
-
-            delete tabhistory[i].renderedHtml
-          }
-
-          processedHistory.push({
-            tabsessionId: element.tabsessionId,
-            tabHistory: tabhistory,
-          })
-
-          newHistoryAfterCleanup.push({
-            tabsessionId: element.tabsessionId,
-            tabHistory: emptyArr,
-          })
-        });
-
-        await storage.set("webhistory",{ webhistory: newHistoryAfterCleanup });
-        let toSaveFinally = []
-
-        for (let i = 0; i < processedHistory.length; i++) {
-          const markdownFormat = webhistoryToLangChainDocument(processedHistory[i].tabsessionId, processedHistory[i].tabHistory)
-          toSaveFinally.push(...markdownFormat)
-        }
-
-        // console.log("SAVING", toSaveFinally)
-
-        const toSend = {
-          documents: toSaveFinally,
-          neourl: await storage.get('neourl'),
-          neouser: await  storage.get('neouser'),
-          neopass: await storage.get('neopass'),
-          openaikey: await storage.get('openaikey'),
-          token: await storage.get('token')
-        }
-
-        // console.log("toSend",toSend)
-
-        const requestOptions = {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(toSend),
-        };
-
-        toast.info("Save Job Initiated.", {
-          position: "bottom-center"
-        });
-
-        const response = await fetch(`${process.env.PLASMO_PUBLIC_BACKEND_URL}/kb/`, requestOptions);
-        const res = await response.json();
-        if (res.success) {
-          toast.success("Save Job Completed.", {
-            position: "bottom-center",
-            autoClose: false
-          });
-        }
-
-      }
-    } catch (error) {
-      console.log(error);
-    }
-
-  };
-
-
-  async function logOut(): Promise<void> {
-    const storage = new Storage({ area: "local" })
-    storage.remove('token');
-    // goTo(LoginForm)
-    navigation("/login")
-  }
-
   async function saveCurrSnapShot(): Promise<void> {
     chrome.tabs.query({ active: true, currentWindow: true }, async function (tabs) {
       const storage = new Storage({ area: "local" })
@@ -274,7 +195,7 @@ const HomePage = () => {
           // @ts-ignore
           func: getRenderedHtml,
         });
-        
+
 
         let toPushInTabHistory: any = result[0].result; // const { renderedHtml, title, url, entryTime } = result[0].result;
 
@@ -287,8 +208,18 @@ const HomePage = () => {
           }
         );
 
+        toPushInTabHistory.pageContentMarkdown = convertHtmlToMarkdown(
+          toPushInTabHistory.renderedHtml,
+          {
+            extractMainContent: true,
+            enableTableColumnTracking: true
+          }
+        )
+
+        delete toPushInTabHistory.renderedHtml
+
         let tabhistory = webHistoryOfTabId[0].tabHistory;
-       
+
 
         const urlQueueListObj: any = await storage.get("urlQueueList");
         const timeQueueListObj: any = await storage.get("timeQueueList");
@@ -296,10 +227,6 @@ const HomePage = () => {
         const isUrlQueueThere = urlQueueListObj.urlQueueList.find((data: WebHistory) => data.tabsessionId === tabId)
         const isTimeQueueThere = timeQueueListObj.timeQueueList.find((data: WebHistory) => data.tabsessionId === tabId)
 
-        // console.log(isUrlQueueThere)
-        // console.log(isTimeQueueThere)
-
-        // console.log(isTimeQueueThere.timeQueue[isTimeQueueThere.length - 1])
 
         toPushInTabHistory.duration = toPushInTabHistory.entryTime - isTimeQueueThere.timeQueue[isTimeQueueThere.timeQueue.length - 1]
         if (isUrlQueueThere.urlQueue.length == 1) {
@@ -311,7 +238,6 @@ const HomePage = () => {
 
         tabhistory.push(toPushInTabHistory);
 
-        // console.log(toPushInTabHistory)
 
         //Update Webhistory
         try {
@@ -319,7 +245,7 @@ const HomePage = () => {
             (data: WebHistory) => data.tabsessionId === tab.id
           ).tabHistory = tabhistory;
 
-          await storage.set("webhistory",{
+          await storage.set("webhistory", {
             webhistory: webhistoryObj.webhistory,
           });
         } catch (error) {
@@ -335,6 +261,39 @@ const HomePage = () => {
     });
   }
 
+  const saveDatamessage = async () => {
+    const resp = await sendToBackground({
+      // @ts-ignore
+      name: "savedata",
+    })
+
+    toast.success(resp.message, {
+      position: "bottom-center"
+    });
+  }
+
+
+  async function logOut(): Promise<void> {
+    const storage = new Storage({ area: "local" })
+    storage.remove('token');
+    // goTo(LoginForm)
+    navigation("/login")
+  }
+
+  const handleSearchSpaceSubmit = async (event: { preventDefault: () => void; }) => {
+    event.preventDefault();
+
+    const storage = new Storage({ area: "local" })
+
+    await storage.set("search_space", searchspace);
+
+    setSearchSpace(searchspace)
+    toast.info("Updated Search Space !", {
+      position: "bottom-center"
+    });
+  }
+
+
   if (loading) {
     return <Loading />;
   } else {
@@ -347,7 +306,7 @@ const HomePage = () => {
             SurfSense
           </div>
           <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
-            <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
+            <div className="p-3 space-y-4">
               <div className="flex justify-between">
                 <button type="button" onClick={() => navigation('/settings')} className="px-3 py-2 text-xs font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -359,17 +318,33 @@ const HomePage = () => {
 
               <div className="flex flex-col gap-3">
                 <div className="block max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                  <div className="flex flex-col gap-4 justify-center items-center text-2xl font-semibold text-gray-900 dark:text-white">
-                    <img className="w-30 h-30 rounded-full" src={brain} alt="brain" />
-                    <div>
-                      {noOfWebPages}
+                  <div className="flex gap-3 justify-center items-center text-2xl font-semibold text-gray-900 dark:text-white">
+                    <div className="flex flex-col gap-2 justify-between grow p-2 border rounded-lg items-center">
+                      <div>
+                        <img className="w-24 h-24 rounded-full" src={brain} alt="brain" />
+                      </div>
+                      <div className="text-center">
+                        {noOfWebPages}
+                      </div>
+                    </div>
+                    <div className="max-w-40">
+                      <form className="space-y-4 md:space-y-6" onSubmit={handleSearchSpaceSubmit}>
+                        <div>
+                          <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search Space</label>
+                          <input type="text" value={searchspace} onChange={(e) => setSearchSpace(e.target.value)} name="searchspace" id="searchspace" className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="searchspace" />
+                        </div>
+
+                        <button type="submit" className="w-full text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800">{'Save'}</button>
+
+                    
+                      </form>
                     </div>
                   </div>
                 </div>
 
                 <button type="button" className="w-full text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center" onClick={() => clearMem()}>Clear Inactive History Sessions</button>
                 <button type="button" className="w-full text-gray-900 bg-gradient-to-r from-red-200 via-red-300 to-yellow-200 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400 font-medium rounded-lg text-sm px-5 py-2.5 text-center" onClick={() => saveCurrSnapShot()}>Save Current Webpage SnapShot</button>
-                <button type="button" className="w-full text-gray-900 bg-gradient-to-r from-teal-200 to-lime-200 hover:bg-gradient-to-l hover:from-teal-200 hover:to-lime-200 focus:ring-4 focus:outline-none focus:ring-lime-200 dark:focus:ring-teal-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2" onClick={() => saveData()}>Save to SurfSense</button>
+                <button type="button" className="w-full text-gray-900 bg-gradient-to-r from-teal-200 to-lime-200 hover:bg-gradient-to-l hover:from-teal-200 hover:to-lime-200 focus:ring-4 focus:outline-none focus:ring-lime-200 dark:focus:ring-teal-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2" onClick={() => saveDatamessage()}>Save to SurfSense</button>
 
               </div>
             </div>

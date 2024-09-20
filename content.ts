@@ -5,3 +5,4 @@ export const config: PlasmoCSConfig = {
   all_frames: true,
   world: "MAIN"
 }
+

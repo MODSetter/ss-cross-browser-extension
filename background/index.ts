@@ -1,6 +1,7 @@
-import { getRenderedHtml, initQueues, initWebHistory } from "components/commons"
-import type { WebHistory } from "components/interfaces"
+import { initQueues, initWebHistory } from "~utils/commons"
+import type { WebHistory } from "~utils/interfaces"
 import { Storage } from "@plasmohq/storage"
+import {getRenderedHtml} from '~utils/commons'
 
 chrome.tabs.onCreated.addListener(async (tab: any) => {
   try {

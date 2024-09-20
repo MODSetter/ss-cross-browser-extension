@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom"
 import  LoginForm  from "./pages/LoginForm"
 import  HomePage  from "./pages/HomePage"
 import OptionIndex from "../options"
-import './tailwind.css'
+import '../tailwind.css'
 
 
 export const Routing = () => (

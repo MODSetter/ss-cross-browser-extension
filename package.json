@@ -10,8 +10,10 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "@plasmohq/messaging": "^0.6.2",
     "@plasmohq/storage": "^1.11.0",
-    "dom-to-semantic-markdown": "^1.2.0",
+    "dom-to-semantic-markdown": "^1.2.11",
+    "linkedom": "0.1.34",
     "plasmo": "0.88.0",
     "postcss-loader": "^8.1.1",
     "react": "18.2.0",
