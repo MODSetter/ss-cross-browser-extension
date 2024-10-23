@@ -262,6 +262,10 @@ const HomePage = () => {
   }
 
   const saveDatamessage = async () => {
+    toast.info("Save Job Running !", {
+      position: "bottom-center"
+    });
+
     const resp = await sendToBackground({
       // @ts-ignore
       name: "savedata",
