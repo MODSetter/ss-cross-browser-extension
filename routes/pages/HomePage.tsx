@@ -287,14 +287,14 @@ const HomePage = () => {
       title: "Save Job Running !",
     })
 
-    // const resp = await sendToBackground({
-    //   // @ts-ignore
-    //   name: "savedata",
-    // })
+    const resp = await sendToBackground({
+      // @ts-ignore
+      name: "savedata",
+    })
 
-    // toast({
-    //   title: resp.message,
-    // })
+    toast({
+      title: resp.message,
+    })
     // toast.success(resp.message, {
     //   position: "bottom-center"
     // });
