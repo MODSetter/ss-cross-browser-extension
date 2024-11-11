@@ -48,6 +48,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
             {
               extractMainContent: true,
               enableTableColumnTracking: true,
+              includeMetaData: false,
               overrideDOMParser: new DOMParser()
             }
           )

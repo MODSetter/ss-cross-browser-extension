@@ -1,13 +1,13 @@
 import { MemoryRouter } from "react-router-dom"
 
 import { Routing } from "~routes"
-import { ToastContainer } from 'react-toastify';
+import { Toaster } from "@/routes/ui/toaster"
 
 function IndexPopup() {
   return (
     <MemoryRouter>
       <Routing />
-      <ToastContainer autoClose={2000} />
+      <Toaster />
     </MemoryRouter>
   )
 }

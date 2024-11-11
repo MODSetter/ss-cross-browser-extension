@@ -93,12 +93,11 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
 
       const toSend = {
         documents: toSaveFinally,
-        search_space: await storage.get("search_space"),
-        openaikey: await storage.get("openaikey"),
+        search_space_id: await storage.get("search_space_id"),
         token: await storage.get("token")
       }
 
-      // console.log("toSend",toSend)
+      console.log("toSend",toSend)
 
       const requestOptions = {
         method: "POST",
@@ -107,7 +106,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       }
 
       const response = await fetch(
-        `${process.env.PLASMO_PUBLIC_BACKEND_URL}/save/`,
+        `${process.env.PLASMO_PUBLIC_BACKEND_URL}/user/save/`,
         requestOptions
       )
       const resp = await response.json()
