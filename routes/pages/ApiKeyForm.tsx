@@ -105,7 +105,7 @@ const ApiKeyForm = () => {
               <p className="text-sm text-gray-400">
                 Need an API key?{" "}
                 <a 
-                  href="https://www.surfsense.net/signup" 
+                  href="https://www.surfsense.net" 
                   target="_blank"
                   className="text-teal-400 hover:text-teal-300 hover:underline"
                 >
