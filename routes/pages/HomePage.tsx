@@ -1,19 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"
 import icon from "data-base64:~assets/icon.png"
-
 import { convertHtmlToMarkdown } from "dom-to-semantic-markdown";
 import type { WebHistory } from "~utils/interfaces";
 import { getRenderedHtml } from "~utils/commons";
 import Loading from "./Loading";
-
 import brain from "data-base64:~assets/brain.png"
 import { Storage } from "@plasmohq/storage"
-
 import { sendToBackground } from "@plasmohq/messaging"
-
 import { Check, ChevronsUpDown } from "lucide-react"
-
 import { cn } from "~/lib/utils"
 import { Button } from "~/routes/ui/button"
 import {
@@ -30,7 +25,16 @@ import {
   PopoverTrigger,
 } from "~/routes/ui/popover"
 import { useToast } from "~routes/ui/use-toast";
-
+import {
+  CircleIcon,
+  CrossCircledIcon,
+  DiscIcon,
+  ExitIcon,
+  FileIcon,
+  ReloadIcon,
+  ResetIcon,
+  UploadIcon
+} from "@radix-ui/react-icons"
 
 const HomePage = () => {
   const { toast } = useToast()
@@ -39,9 +43,8 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = React.useState(false)
   const [value, setValue] = React.useState<string>("")
-  // const [selectedsearchspace, setSelectedSearchSpace] = useState();
   const [searchspaces, setSearchSpaces] = useState([])
-
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const checkSearchSpaces = async () => {
@@ -49,7 +52,12 @@ const HomePage = () => {
       const token = await storage.get('token');
       try {
         const response = await fetch(
-          `${process.env.PLASMO_PUBLIC_BACKEND_URL!}/user/${token}/searchspaces/`
+          `${process.env.PLASMO_PUBLIC_BACKEND_URL}/api/v1/searchspaces/`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
         );
 
         if (!response.ok) {
@@ -62,7 +70,6 @@ const HomePage = () => {
       } catch (error) {
         await storage.remove('token');
         await storage.remove('showShadowDom');
-        // goTo(LoginForm);
         navigation("/login")
       }
     };
@@ -78,34 +85,25 @@ const HomePage = () => {
         chrome.storage.onChanged.addListener(
           (changes: any, areaName: string) => {
             if (changes.webhistory) {
-              // console.log("changes.webhistory", changes.webhistory)
               const webhistory = JSON.parse(changes.webhistory.newValue);
-
               console.log("webhistory", webhistory)
 
               let sum = 0
-
               webhistory.webhistory.forEach((element: any) => {
                 sum = sum + element.tabHistory.length
               });
 
               setNoOfWebPages(sum)
             }
-            // console.log(changes)
-            // console.log(areaName)
           }
         );
 
         const storage = new Storage({ area: "local" })
-
         const searchspace = await storage.get("search_space");
 
         if(searchspace){
           setValue(searchspace)
         }
-        // else{
-        //   await storage.set("search_space", 'GENERAL')
-        // }
 
         await storage.set("showShadowDom", true)
 
@@ -123,8 +121,6 @@ const HomePage = () => {
         } else {
           setNoOfWebPages(0)
         }
-
-
       } catch (error) {
         console.log(error);
       }
@@ -148,7 +144,6 @@ const HomePage = () => {
       //Main Cleanup COde
       chrome.tabs.query({}, async (tabs) => {
         //Get Active Tabs Ids
-        // console.log("Event Tabs",tabs)
         let actives = tabs.map((tab) => {
           if (tab.id) {
             return tab.id
@@ -156,7 +151,6 @@ const HomePage = () => {
         })
   
         actives = actives.filter((item: any) => item)
-  
   
         //Only retain which is still active
         const newHistory = webHistory.webhistory.map((element: any) => {
@@ -180,12 +174,12 @@ const HomePage = () => {
           }
         })
   
-  
         await storage.set("webhistory", { webhistory: newHistory.filter((item: any) => item) });
         await storage.set("urlQueueList", { urlQueueList: newUrlQueue.filter((item: any) => item) });
         await storage.set("timeQueueList", { timeQueueList: newTimeQueue.filter((item: any) => item) });
         toast({
-          title: "History Store Deleted!",
+          title: "History store cleared",
+          description: "Inactive history sessions have been removed",
           variant: "destructive",
         })
       });
@@ -199,8 +193,6 @@ const HomePage = () => {
       const storage = new Storage({ area: "local" })
       const tab = tabs[0];
       if (tab.id) {
-        // await initWebHistory(tab.id);
-        // await initQueues(tab.id);
         const tabId: number = tab.id
         const result = await chrome.scripting.executeScript({
           // @ts-ignore
@@ -209,10 +201,9 @@ const HomePage = () => {
           func: getRenderedHtml,
         });
 
+        let toPushInTabHistory: any = result[0].result;
 
-        let toPushInTabHistory: any = result[0].result; // const { renderedHtml, title, url, entryTime } = result[0].result;
-
-        // //Updates 'tabhistory'
+        //Updates 'tabhistory'
         let webhistoryObj: any = await storage.get("webhistory");
 
         const webHistoryOfTabId = webhistoryObj.webhistory.filter(
@@ -234,13 +225,11 @@ const HomePage = () => {
 
         let tabhistory = webHistoryOfTabId[0].tabHistory;
 
-
         const urlQueueListObj: any = await storage.get("urlQueueList");
         const timeQueueListObj: any = await storage.get("timeQueueList");
 
         const isUrlQueueThere = urlQueueListObj.urlQueueList.find((data: WebHistory) => data.tabsessionId === tabId)
         const isTimeQueueThere = timeQueueListObj.timeQueueList.find((data: WebHistory) => data.tabsessionId === tabId)
-
 
         toPushInTabHistory.duration = toPushInTabHistory.entryTime - isTimeQueueThere.timeQueue[isTimeQueueThere.timeQueue.length - 1]
         if (isUrlQueueThere.urlQueue.length == 1) {
@@ -250,24 +239,13 @@ const HomePage = () => {
           toPushInTabHistory.reffererUrl = isUrlQueueThere.urlQueue[isUrlQueueThere.urlQueue.length - 2];
         }
 
-        tabhistory.push(toPushInTabHistory);
-
-
-        //Update Webhistory
-        try {
-          webhistoryObj.webhistory.find(
-            (data: WebHistory) => data.tabsessionId === tab.id
-          ).tabHistory = tabhistory;
-
-          await storage.set("webhistory", {
-            webhistory: webhistoryObj.webhistory,
-          });
-        } catch (error) {
-          console.log(error);
-        }
-
+        webHistoryOfTabId[0].tabHistory.push(toPushInTabHistory);
+        
+        await storage.set("webhistory", webhistoryObj);
+        
         toast({
-          title: "Saved Snapshot !",
+          title: "Snapshot saved",
+          description: `Captured: ${toPushInTabHistory.title}`,
         })
       }
 
@@ -275,181 +253,223 @@ const HomePage = () => {
   }
 
   const saveDatamessage = async () => {
-
-    if (value === ""){
+    if (value === "") {
       toast({
         title: "Select a SearchSpace !",
       })
       return
     }
+    
+    const storage = new Storage({ area: "local" })
+    const search_space_id = await storage.get("search_space_id");
+    
+    if (!search_space_id) {
+      toast({
+        title: "Invalid SearchSpace selected!",
+        variant: "destructive",
+      })
+      return
+    }
 
+    setIsSaving(true);
     toast({
-      title: "Save Job Running !",
+      title: "Save job running",
+      description: "Saving captured content to SurfSense",
     })
 
-    const resp = await sendToBackground({
-      // @ts-ignore
-      name: "savedata",
-    })
+    try {
+      const resp = await sendToBackground({
+        // @ts-ignore
+        name: "savedata",
+      })
 
-    toast({
-      title: resp.message,
-    })
-    // toast.success(resp.message, {
-    //   position: "bottom-center"
-    // });
+      toast({
+        title: resp.message,
+      })
+    } catch (error) {
+      toast({
+        title: "Error saving data",
+        description: "Please try again",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false);
+    }
   }
-
 
   async function logOut(): Promise<void> {
     const storage = new Storage({ area: "local" })
-    storage.remove('token');
-    // goTo(LoginForm)
+    await storage.remove('token');
+    await storage.remove('showShadowDom');
     navigation("/login")
   }
-
-  // const handleSearchSpaceSubmit = async (event: { preventDefault: () => void; }) => {
-  //   event.preventDefault();
-
-  //   const storage = new Storage({ area: "local" })
-
-  //   await storage.set("search_space", searchspace);
-
-  //   setSearchSpace(searchspace)
-  //   // toast.info("Updated Search Space !", {
-  //   //   position: "bottom-center"
-  //   // });
-  // }
-
 
   if (loading) {
     return <Loading />;
   } else {
-    return (
-      searchspaces.length === 0 ? (
-        <>
-          <div className="dark bg-gray-900 flex flex-col items-center justify-center p-4">
-            <div className="flex items-center mb-6 text-2xl font-semibold text-gray-900 dark:text-white">
-              <img className="w-8 h-8 mr-2 rounded-full" src={icon} alt="logo" />
-              SurfSense
+    return searchspaces.length === 0 ? (
+      <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="w-full max-w-md space-y-8">
+            <div className="flex flex-col items-center space-y-2 text-center">
+              <div className="rounded-full bg-gray-800 p-3 shadow-lg ring-2 ring-gray-700">
+                <img className="h-12 w-12" src={icon} alt="SurfSense" />
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white">SurfSense</h1>
+              <div className="mt-4 rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-4 text-yellow-300">
+                <p className="text-sm">Please create a Search Space to continue</p>
+              </div>
             </div>
-            <div className="dark:text-white border border-gray-200 rounded-lg shadow-md dark:bg-gray-800 dark:border-gray-700 p-6 mb-4">
-              Please Create a Search Space to Continue
+            
+            <div className="mt-6 flex justify-center">
+              <Button 
+                onClick={logOut}
+                variant="outline"
+                className="flex items-center space-x-2 border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700"
+              >
+                <ExitIcon className="h-4 w-4" />
+                <span>Sign Out</span>
+              </Button>
             </div>
           </div>
-        </>
-      ) : (
-        <>
-          <section className="dark min-h-screen bg-gray-900 p-4">
-            <div className="flex flex-col items-center justify-center">
-              <div className="flex items-center mb-6 text-2xl font-semibold text-gray-900 dark:text-white">
-                <img className="w-8 h-8 mr-2 rounded-full" src={icon} alt="logo" />
-                SurfSense
+        </div>
+      </div>
+    ) : (
+      <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="container mx-auto max-w-md p-4">
+          <div className="flex items-center justify-between border-b border-gray-700 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="rounded-full bg-gray-800 p-2 shadow-md ring-1 ring-gray-700">
+                <img className="h-6 w-6" src={icon} alt="SurfSense" />
               </div>
-              <div className="w-full max-w-md bg-white rounded-lg shadow-sm dark:bg-gray-800">
-                <div className="p-5 space-y-4">
-                  <div className="flex justify-between gap-4">
+              <h1 className="text-xl font-semibold text-white">SurfSense</h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logOut}
+              className="rounded-full text-gray-400 hover:bg-gray-800 hover:text-white"
+            >
+              <ExitIcon className="h-4 w-4" />
+              <span className="sr-only">Log out</span>
+            </Button>
+          </div>
 
-                    <button
-                      type="button"
-                      onClick={() => logOut()}
-                      className="p-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" x2="9" y1="12" y2="12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-md dark:bg-gray-800 dark:border-gray-700">
-                      <div className="flex flex-col gap-4 justify-center items-center text-xl font-semibold text-gray-900 dark:text-white p-4">
-                        <div className="flex flex-col gap-2 w-full grow p-3 border rounded-md items-center bg-gray-100 dark:bg-gray-700">
-                          <img className="w-24 h-24 rounded-full mb-2" src={brain} alt="brain" />
-                          <div className="text-center text-lg">
-                            {noOfWebPages}
-                          </div>
-                        </div>
-                        <div className="max-w-sm">
-                          <Popover open={open} onOpenChange={setOpen}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={open}
-                                className="w-[200px] justify-between"
-                              >
-                                {value
-                                  ? searchspaces.find((space) => space.name === value)?.name
-                                  : "Select Search Space..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                              <Command>
-                                <CommandInput placeholder="Search Spaces..." />
-                                <CommandList>
-                                  <CommandEmpty>No Search Spaces found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {searchspaces.map((space) => (
-                                      <CommandItem
-                                        key={space.name}
-                                        value={space.name}
-                                        onSelect={async (currentValue) => {
-                                          const storage = new Storage({ area: "local" })
-                                          currentValue === value ? await storage.set("search_space", "") : await storage.set("search_space", space.name);
-                                          currentValue === value ? await storage.set("search_space_id", searchspaces.find((space) => space.name === currentValue).id!) : await storage.set("search_space_id", space.id);
-                                          // setSelectedSearchSpace(currentValue === value ? {} : searchspaces.find((space) => space.name === currentValue)!)
-                                          setValue(currentValue === value ? "" : space.name)
-                                          setOpen(false)
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === space.name ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {space.name}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        className="w-full text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:ring-red-300 dark:focus:ring-red-800 rounded-lg text-sm px-5 py-2.5"
-                        onClick={() => clearMem()}>
-                        Clear Inactive History Sessions
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-gray-900 bg-gradient-to-r from-yellow-200 to-red-300 hover:bg-gradient-to-bl focus:ring-4 focus:ring-red-100 dark:focus:ring-red-400 rounded-lg text-sm px-5 py-2.5"
-                        onClick={() => saveCurrSnapShot()}>
-                        Save Current Webpage Snapshot
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-gray-900 bg-gradient-to-r from-teal-200 to-lime-200 hover:bg-gradient-to-l hover:from-teal-200 hover:to-lime-200 focus:ring-4 focus:ring-lime-200 dark:focus:ring-teal-700 rounded-lg text-sm px-5 py-2.5"
-                        onClick={() => saveDatamessage()}>
-                        Save to SurfSense
-                      </button>
-                    </div>
-                  </div>
+          <div className="space-y-3 py-4">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-700 bg-gray-800/50 p-6 backdrop-blur-sm">
+              <div className="flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-gray-700 to-gray-800 shadow-inner">
+                <div className="flex flex-col items-center">
+                  <img className="mb-2 h-10 w-10 opacity-80" src={brain} alt="brain" />
+                  <span className="text-2xl font-semibold text-white">{noOfWebPages}</span>
                 </div>
               </div>
+              <p className="mt-4 text-sm text-gray-400">Captured web pages</p>
             </div>
-          </section>
-        </>
-      )
 
-    )
+            <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 backdrop-blur-sm">
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Search Space
+              </label>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between border-gray-700 bg-gray-900 text-white hover:bg-gray-700"
+                  >
+                    {value
+                      ? searchspaces.find((space) => space.name === value)?.name
+                      : "Select Search Space..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full border-gray-700 bg-gray-800/90 p-0 backdrop-blur-sm">
+                  <Command className="bg-transparent">
+                    <CommandInput placeholder="Search spaces..." className="border-gray-700 bg-gray-900 text-gray-200" />
+                    <CommandList>
+                      <CommandEmpty>No search spaces found.</CommandEmpty>
+                      <CommandGroup>
+                        {searchspaces.map((space) => (
+                          <CommandItem
+                            key={space.name}
+                            value={space.name}
+                            onSelect={async (currentValue) => {
+                              const storage = new Storage({ area: "local" })
+                              if (currentValue === value) {
+                                await storage.set("search_space", "");
+                                await storage.set("search_space_id", 0);
+                              } else {
+                                const selectedSpace = searchspaces.find((space) => space.name === currentValue);
+                                await storage.set("search_space", currentValue);
+                                await storage.set("search_space_id", selectedSpace.id);
+                              }
+                              setValue(currentValue === value ? "" : currentValue)
+                              setOpen(false)
+                            }}
+                            className="aria-selected:bg-gray-700"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                value === space.name ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex items-center">
+                              <DiscIcon className="mr-2 h-4 w-4 text-teal-400" />
+                              {space.name}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid gap-3">
+              <Button
+                variant="destructive"
+                className="group flex w-full items-center justify-center space-x-2 bg-red-500/90 text-white hover:bg-red-600"
+                onClick={() => clearMem()}
+              >
+                <CrossCircledIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span>Clear Inactive History</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="group flex w-full items-center justify-center space-x-2 border-amber-500/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                onClick={() => saveCurrSnapShot()}
+              >
+                <FileIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span>Save Current Page</span>
+              </Button>
+              
+              <Button
+                variant="default" 
+                className="group flex w-full items-center justify-center space-x-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white transition-all hover:from-teal-600 hover:to-emerald-600"
+                onClick={() => saveDatamessage()}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Saving to SurfSense...</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+                    <span>Save to SurfSense</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 };
 

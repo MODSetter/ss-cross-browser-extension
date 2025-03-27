@@ -4,35 +4,34 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 180 100% 37%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 240 5.9% 10%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 5.9% 10%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --accent: 169 97% 37%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
-
-    --ring: 215 20.2% 65.1%;
-
+    --border: 240 5.9% 24%;
+    --input: 240 5.9% 10%;
+    --ring: 180 100% 37%;
+    
     --radius: 0.5rem;
   }
 
@@ -71,7 +70,8 @@
 }
 
 body {
-  min-width: 400px;
+  min-width: 380px;
+  min-height: 580px;
 }
 
 @layer base {
@@ -80,6 +80,19 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  }
+
+  /* Styling for shadcn/ui components */
+  .command-dialog {
+    @apply dark;
+  }
+}
+
+/* Popup page dimensions */
+@media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-slate-950 text-white;
   }
 }
